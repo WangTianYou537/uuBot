@@ -1,0 +1,7 @@
+/target
+/data.db*
+/.env
+/.weixin-bot*
+frontend/node_modules
+# Note: frontend/dist is intentionally NOT ignored — rust-embed needs it at
+# compile time. `./build.sh` regenerates it before building the binary.

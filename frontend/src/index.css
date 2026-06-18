@@ -1,0 +1,269 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   LEXIS — a self-compiled dictionary.
+   Palette: bone paper · warm ink · deep jade · amber highlighter.
+   Type: Fraunces (display) · Geist (body) · JetBrains Mono (data).
+   ============================================================ */
+
+:root {
+  --radius: 0.375rem;
+
+  --paper: #f1eee4;
+  --ink: #1b1a15;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+
+  --card: #fbf9f2;
+  --card-foreground: var(--ink);
+  --popover: #fbf9f2;
+  --popover-foreground: var(--ink);
+
+  /* deep jade */
+  --primary: #15604a;
+  --primary-foreground: #f6f3e9;
+
+  --secondary: #e6e1d2;
+  --secondary-foreground: #2b2a22;
+  --muted: #e8e3d4;
+  --muted-foreground: #6c6757;
+  --accent: #e3ddcc;
+  --accent-foreground: #2b2a22;
+
+  --destructive: #ad2e22;
+  --destructive-foreground: #f6f3e9;
+
+  --border: #d7d1bf;
+  --input: #d7d1bf;
+  --ring: #15604a;
+
+  /* amber highlighter — signature accent */
+  --highlight: #e0ad32;
+  --highlight-soft: #f0d98e;
+
+  --chart-1: #15604a;
+  --chart-2: #e0ad32;
+  --chart-3: #8a7e5a;
+  --chart-4: #b0654a;
+  --chart-5: #3f5e8c;
+
+  --sidebar: #fbf9f2;
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: #15604a;
+  --sidebar-primary-foreground: #f6f3e9;
+  --sidebar-accent: #e3ddcc;
+  --sidebar-accent-foreground: #2b2a22;
+  --sidebar-border: #d7d1bf;
+  --sidebar-ring: #15604a;
+}
+
+.dark {
+  --paper: #15150f;
+  --ink: #ece8da;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+
+  --card: #1c1c14;
+  --card-foreground: var(--ink);
+  --popover: #1c1c14;
+  --popover-foreground: var(--ink);
+
+  --primary: #55c0a1;
+  --primary-foreground: #10130d;
+
+  --secondary: #272619;
+  --secondary-foreground: #ece8da;
+  --muted: #24241a;
+  --muted-foreground: #9d9883;
+  --accent: #2c2b1d;
+  --accent-foreground: #ece8da;
+
+  --destructive: #e0675a;
+  --destructive-foreground: #15150f;
+
+  --border: #322f22;
+  --input: #3a3729;
+  --ring: #55c0a1;
+
+  --highlight: #e9c456;
+  --highlight-soft: #6a5a22;
+
+  --chart-1: #55c0a1;
+  --chart-2: #e9c456;
+  --chart-3: #b6a878;
+  --chart-4: #d28368;
+  --chart-5: #7d97c4;
+
+  --sidebar: #1c1c14;
+  --sidebar-foreground: #ece8da;
+  --sidebar-primary: #55c0a1;
+  --sidebar-primary-foreground: #10130d;
+  --sidebar-accent: #2c2b1d;
+  --sidebar-accent-foreground: #ece8da;
+  --sidebar-border: #322f22;
+  --sidebar-ring: #55c0a1;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-highlight: var(--highlight);
+  --color-highlight-soft: var(--highlight-soft);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-display: "Fraunces Variable", Georgia, "Songti SC", serif;
+  --font-sans: "Geist Variable", system-ui, "PingFang SC", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --font-heading: var(--font-display);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "ss01" 1, "cv01" 1;
+  }
+  ::selection {
+    background: var(--highlight-soft);
+    color: var(--ink);
+  }
+}
+
+@layer components {
+  /* Small uppercase utility label — used as section eyebrows. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* The dictionary headword. */
+  .headword {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 560;
+    letter-spacing: -0.015em;
+    line-height: 1.02;
+    color: var(--foreground);
+  }
+
+  /* Amber highlighter stroke sitting behind a headword. */
+  .marked {
+    background-image: linear-gradient(
+      to top,
+      var(--highlight-soft) 0,
+      var(--highlight-soft) 0.36em,
+      transparent 0.36em
+    );
+    padding-inline: 0.05em;
+  }
+
+  /* IPA phonetic in mono, wrapped in slashes. */
+  .phonetic {
+    font-family: var(--font-mono);
+    color: var(--primary);
+    font-size: 0.9em;
+  }
+  .phonetic::before {
+    content: "/";
+    opacity: 0.5;
+  }
+  .phonetic::after {
+    content: "/";
+    opacity: 0.5;
+  }
+
+  /* Sense-numbered definition list, dictionary style. */
+  .senses {
+    counter-reset: sense;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .senses > li {
+    position: relative;
+    padding-left: 1.6rem;
+    line-height: 1.5;
+  }
+  .senses > li::before {
+    counter-increment: sense;
+    content: counter(sense);
+    position: absolute;
+    left: 0;
+    top: 0.05em;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: var(--primary);
+    border: 1px solid color-mix(in oklab, var(--primary) 35%, transparent);
+    border-radius: 999px;
+    width: 1.15rem;
+    height: 1.15rem;
+    display: grid;
+    place-items: center;
+  }
+
+  /* Hairline rule with a center label, like a dictionary divider. */
+  .rule {
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
