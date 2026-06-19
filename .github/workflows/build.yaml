@@ -1,27 +1,28 @@
-name: Build uuBot
+name: Build and Release uuBot
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch: # 允许手动触发
+    tags:
+      - 'v*' # 当推送形如 v1.0.0, v2.1.3 等标签时触发
+
+permissions:
+  contents: write # 必须配置此权限，以便创建 Release 并上传资源
 
 jobs:
-  build:
-    name: Build Release Binary
+  release:
+    name: Build and Publish Release
     runs-on: ubuntu-latest
 
     steps:
       # 1. 拉取代码
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      # 2. 设置 Node.js 环境（带缓存以加快后续构建速度）
+      # 2. 设置 Node.js 环境（升级至支持 Node.js 24 运行时的 v6 版本）
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20' # 可以根据您的实际项目版本进行调整
+          node-version: '20' # 保持您项目编译所需的 Node 20（或改为其他适合的版本）
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
@@ -29,14 +30,14 @@ jobs:
       - name: Build frontend
         run: |
           cd frontend
-          npm ci # 在 CI 环境中，npm ci 比 npm install 更安全、更一致
+          npm ci
           npm run build
 
       # 4. 设置 Rust 工具链
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # 5. Rust 依赖缓存，避免每次都要重新编译所有依赖
+      # 5. Rust 依赖缓存
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
 
@@ -46,9 +47,9 @@ jobs:
           touch src/embed.rs
           cargo build --release
 
-      # 7. 上传构建好的二进制文件作为 Artifact
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+      # 7. 创建 Release 并上传二进制文件
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
         with:
-          name: uuBot-linux-amd64
-          path: target/release/uuBot
+          files: target/release/uuBot
+          generate_release_notes: true # 自动根据提交历史生成 Release 日志
