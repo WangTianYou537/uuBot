@@ -237,8 +237,8 @@ async fn translate_gemini(
             "parts": [{ "text": prompt }]
         }],
         "generationConfig": {
-            "response_mime_type": "application/json",
-            "response_schema": result_schema()
+            "responseMimeType": "application/json",
+            "responseSchema": result_schema()
         }
     });
 
