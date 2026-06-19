@@ -18,6 +18,18 @@ pub struct Model {
     pub note: String,
     /// Comma-separated tags.
     pub tags: String,
+    #[serde(default)]
+    pub input_type: String,
+    #[serde(default)]
+    pub difficulty: String,
+    #[sea_orm(column_type = "Text")]
+    #[serde(default)]
+    pub content_markdown: String,
+    #[serde(default)]
+    pub source: String,
+    #[sea_orm(column_type = "Text")]
+    #[serde(default)]
+    pub raw_json: String,
     pub created_at: ChronoDateTimeUtc,
     pub updated_at: ChronoDateTimeUtc,
 }

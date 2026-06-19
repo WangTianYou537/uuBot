@@ -48,13 +48,17 @@ async fn login(
     }
 
     let token = auth::sign(&state, admin.id, "admin")?;
-    let jar = jar.add(auth::session_cookie(&state, token));
+    let jar = jar
+        .add(auth::admin_session_cookie(&state, token))
+        .add(auth::clear_legacy_cookie(&state));
     Ok((jar, Json(json!({ "ok": true }))))
 }
 
 /// POST /api/admin/logout
 async fn logout(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
-    let jar = jar.add(auth::clear_cookie(&state));
+    let jar = jar
+        .add(auth::clear_admin_cookie(&state))
+        .add(auth::clear_legacy_cookie(&state));
     (jar, Json(json!({ "ok": true })))
 }
 

@@ -18,7 +18,6 @@ import {
 import {
   api,
   type AiTranslationResult,
-  type DictionaryResult,
   type Word,
   type WordList,
 } from "@/lib/api";
@@ -206,6 +205,28 @@ function Entry({
           </p>
         )}
 
+        {word.content_markdown && (
+          <details className="rounded-md border border-border bg-secondary/40 p-3">
+            <summary className="cursor-pointer text-sm font-medium">完整讲解</summary>
+            <div className="mt-3 whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground/85">
+              {word.content_markdown}
+            </div>
+          </details>
+        )}
+
+        {(word.input_type || word.difficulty || word.source) && (
+          <div className="flex flex-wrap gap-1.5">
+            {[word.input_type, word.difficulty, word.source].filter(Boolean).map((t) => (
+              <span
+                key={t}
+                className="rounded-sm border border-border px-2 py-0.5 font-mono text-xs text-muted-foreground"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {tags.map((t) => (
@@ -264,20 +285,11 @@ function WordDialog({
   const [example, setExample] = useState(word?.example ?? "");
   const [note, setNote] = useState(word?.note ?? "");
   const [tags, setTags] = useState(word?.tags ?? "");
-
-  const lookup = useMutation({
-    mutationFn: () =>
-      api.get<DictionaryResult>(
-        `/api/words/lookup?term=${encodeURIComponent(term)}`
-      ),
-    onSuccess: (d) => {
-      if (d.phonetic) setPhonetic(d.phonetic);
-      if (d.definition) setDefinition(d.definition);
-      if (d.example) setExample(d.example);
-      toast.success("已取词典释义");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const [inputType, setInputType] = useState(word?.input_type ?? "");
+  const [difficulty, setDifficulty] = useState(word?.difficulty ?? "");
+  const [contentMarkdown, setContentMarkdown] = useState(word?.content_markdown ?? "");
+  const [source, setSource] = useState(word?.source ?? "manual");
+  const [rawJson, setRawJson] = useState(word?.raw_json ?? "");
 
   const aiTranslate = useMutation({
     mutationFn: () =>
@@ -288,6 +300,11 @@ function WordDialog({
       if (d.example) setExample(d.example);
       if (d.note) setNote(d.note);
       if (d.tags) setTags(d.tags);
+      if (d.input_type) setInputType(d.input_type);
+      if (d.difficulty) setDifficulty(d.difficulty);
+      if (d.content_markdown) setContentMarkdown(d.content_markdown);
+      if (d.raw_json) setRawJson(d.raw_json);
+      setSource("ai");
       toast.success("AI 翻译已填入词条");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -295,10 +312,22 @@ function WordDialog({
 
   const save = useMutation({
     mutationFn: () => {
-      const payload = { term, phonetic, definition, example, note, tags };
+      const payload = {
+        term,
+        phonetic,
+        definition,
+        example,
+        note,
+        tags,
+        input_type: inputType,
+        difficulty,
+        content_markdown: contentMarkdown,
+        source,
+        raw_json: rawJson,
+      };
       return isEdit
         ? api.put(`/api/words/${word!.id}`, payload)
-        : api.post("/api/words", { ...payload, auto_lookup: true });
+        : api.post("/api/words", { ...payload, auto_lookup: false });
     },
     onSuccess: () => {
       toast.success(isEdit ? "已更新词条" : "已收录");
@@ -329,23 +358,9 @@ function WordDialog({
               <Button
                 type="button"
                 variant="outline"
-                title="从词典取义"
-                onClick={() => lookup.mutate()}
-                disabled={!term || lookup.isPending || aiTranslate.isPending}
-              >
-                {lookup.isPending ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <Sparkles />
-                )}
-                取义
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
                 title="调用后台配置的 LLM 翻译"
                 onClick={() => aiTranslate.mutate()}
-                disabled={!term || lookup.isPending || aiTranslate.isPending}
+                disabled={!term || aiTranslate.isPending}
               >
                 {aiTranslate.isPending ? (
                   <Loader2 className="animate-spin" />
@@ -385,6 +400,27 @@ function WordDialog({
 
           <Field label="备注">
             <Input value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="类型">
+              <Input value={inputType} onChange={(e) => setInputType(e.target.value)} placeholder="word" />
+            </Field>
+            <Field label="难度">
+              <Input value={difficulty} onChange={(e) => setDifficulty(e.target.value)} placeholder="中级" />
+            </Field>
+            <Field label="来源">
+              <Input value={source} onChange={(e) => setSource(e.target.value)} className="font-mono" />
+            </Field>
+          </div>
+
+          <Field label="完整讲解 Markdown">
+            <Textarea
+              value={contentMarkdown}
+              onChange={(e) => setContentMarkdown(e.target.value)}
+              rows={6}
+              className="max-h-72 min-h-36 resize-y overflow-y-auto font-mono text-xs"
+            />
           </Field>
 
           <Field label="标签（逗号分隔）">

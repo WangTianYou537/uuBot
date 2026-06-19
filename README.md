@@ -5,7 +5,7 @@
 - **微信注册登录**：通过 [mapay.cn 聚合登录](./api.md)（`type=wx`）注册/登录，首次登录自动创建账号。
 - **绑定邮箱**：登录后可在「账户设置」绑定邮箱并可选设置密码。
 - **邮箱登录**：绑定后支持「验证码」或「密码」两种方式登录。
-- **单词收藏**：单词 / 音标 / 释义 / 例句 / 备注 / 标签，添加时可一键从词典自动补全，也可调用后台配置的 LLM 翻译。
+- **单词收藏**：单词 / 音标 / 释义 / 例句 / 备注 / 标签，可用 DeeplX 快速取义，也可调用后台配置的 LLM 生成学习型 Markdown 讲解。
 - **微信 Bot**：通过 provider-neutral Webhook 接收 `/trans`、`/add`、`/list` 指令；用户可在 Web 端申请绑定微信并查看会话。
 - **后台管理面板**：独立管理员账号；可配置 SMTP 发信、微信聚合登录凭据、词典接口，并查看用户与统计、测试发信。
 - **多数据库**：SQLite / MySQL / PostgreSQL（改连接串即可切换）。
@@ -51,7 +51,7 @@ cd frontend && npm install && npm run dev
 ## 配置说明
 
 - **启动配置**（数据库、监听地址、JWT 密钥、初始管理员）：环境变量 / `.env`，见 `.env.example`。
-- **运行时配置**（SMTP、微信 appid/appkey、词典 URL、AI 翻译、微信 Bot）：存数据库，在**后台管理面板**中修改，无需重启。
+- **运行时配置**（SMTP、微信 appid/appkey、DeeplX、AI 翻译、微信 Bot）：存数据库，在**后台管理面板**中修改，无需重启。
 
 切换数据库只需修改 `DATABASE_URL`：
 
@@ -66,6 +66,12 @@ postgres://user:pass@localhost:5432/uubot
 1. 在后台「系统配置 → 微信聚合登录」填入从 mapay.cn 获取的 **AppID** 与 **AppKey**。
 2. 确保 `PUBLIC_BASE_URL` 是浏览器可访问的地址；回调地址为 `${PUBLIC_BASE_URL}/api/auth/wechat/callback`。
 3. 前台「微信登录」会跳转到扫码页，扫码后回调自动建号并登录。
+
+## 词典与 AI 翻译
+
+- 「取义」使用 DeeplX Endpoint，默认 `https://api.deeplx.org/translate`，可在后台「系统配置 → 词典查询」改为自建 DeeplX 服务。
+- 「AI 翻译」会返回基础摘要字段和完整 Markdown 学习讲解；后台可配置 provider、endpoint、key、模型和系统提示词。
+- 新版词条会保存 `input_type`、`difficulty`、`content_markdown`、`source`、`raw_json` 等扩展字段；旧数据库启动时会自动补齐新增列。
 
 ## wx-bot 绑定与指令
 

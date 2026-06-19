@@ -59,7 +59,8 @@ async fn list(
             Condition::any()
                 .add(words::Column::Term.like(&like))
                 .add(words::Column::Definition.like(&like))
-                .add(words::Column::Tags.like(&like)),
+                .add(words::Column::Tags.like(&like))
+                .add(words::Column::ContentMarkdown.like(&like)),
         );
     }
 
@@ -132,6 +133,16 @@ struct CreateReq {
     note: String,
     #[serde(default)]
     tags: String,
+    #[serde(default)]
+    input_type: String,
+    #[serde(default)]
+    difficulty: String,
+    #[serde(default)]
+    content_markdown: String,
+    #[serde(default)]
+    source: String,
+    #[serde(default)]
+    raw_json: String,
     /// When true and definition is empty, auto-fill from the dictionary.
     #[serde(default)]
     auto_lookup: bool,
@@ -163,6 +174,21 @@ async fn create(
                 if req.example.trim().is_empty() {
                     req.example = found.example;
                 }
+                if req.note.trim().is_empty() {
+                    req.note = found.note;
+                }
+                if req.tags.trim().is_empty() {
+                    req.tags = found.tags;
+                }
+                if req.content_markdown.trim().is_empty() {
+                    req.content_markdown = found.content_markdown;
+                }
+                if req.raw_json.trim().is_empty() {
+                    req.raw_json = found.raw_json;
+                }
+                if req.source.trim().is_empty() {
+                    req.source = "dictionary".into();
+                }
             }
         }
     }
@@ -176,6 +202,15 @@ async fn create(
         example: Set(req.example),
         note: Set(req.note),
         tags: Set(req.tags),
+        input_type: Set(req.input_type),
+        difficulty: Set(req.difficulty),
+        content_markdown: Set(req.content_markdown),
+        source: Set(if req.source.trim().is_empty() {
+            "manual".into()
+        } else {
+            req.source
+        }),
+        raw_json: Set(req.raw_json),
         created_at: Set(now),
         updated_at: Set(now),
         ..Default::default()
@@ -213,6 +248,11 @@ struct UpdateReq {
     example: Option<String>,
     note: Option<String>,
     tags: Option<String>,
+    input_type: Option<String>,
+    difficulty: Option<String>,
+    content_markdown: Option<String>,
+    source: Option<String>,
+    raw_json: Option<String>,
 }
 
 /// PUT /api/words/{id}
@@ -245,6 +285,21 @@ async fn update(
     }
     if let Some(v) = req.tags {
         active.tags = Set(v);
+    }
+    if let Some(v) = req.input_type {
+        active.input_type = Set(v);
+    }
+    if let Some(v) = req.difficulty {
+        active.difficulty = Set(v);
+    }
+    if let Some(v) = req.content_markdown {
+        active.content_markdown = Set(v);
+    }
+    if let Some(v) = req.source {
+        active.source = Set(v);
+    }
+    if let Some(v) = req.raw_json {
+        active.raw_json = Set(v);
     }
     active.updated_at = Set(Utc::now());
     let model = active.update(&state.db).await?;

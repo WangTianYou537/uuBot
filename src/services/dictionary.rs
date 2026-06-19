@@ -1,120 +1,106 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-use crate::error::AppError;
+use crate::error::{AppError, AppResult};
 use crate::services::settings::DictionarySettings;
 
 /// Result of a dictionary lookup. Fields may be empty if not found.
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct DictionaryResult {
     pub phonetic: String,
     pub definition: String,
     pub example: String,
+    pub note: String,
+    pub tags: String,
+    pub content_markdown: String,
+    pub raw_json: String,
 }
 
-/// Look up a term using the configured dictionary endpoint.
-///
-/// The default endpoint (dictionaryapi.dev) returns an array of entries; we
-/// parse it loosely so a change in shape degrades gracefully rather than erroring.
+/// Look up a term using the configured DeeplX endpoint.
 pub async fn lookup(
     http: &reqwest::Client,
     cfg: &DictionarySettings,
     term: &str,
-) -> Result<DictionaryResult, AppError> {
+) -> AppResult<DictionaryResult> {
     if !cfg.enabled {
         return Err(AppError::BadRequest("词典查询未启用".into()));
     }
-    let url = cfg
-        .url_template
-        .replace("{word}", &urlencoding(term.trim()));
+    if cfg.api_endpoint.trim().is_empty() {
+        return Err(AppError::BadRequest("请先配置 DeeplX Endpoint".into()));
+    }
+
+    let body = json!({
+        "text": term.trim(),
+        "source_lang": cfg.source_lang.trim(),
+        "target_lang": cfg.target_lang.trim(),
+    });
 
     let resp = http
-        .get(&url)
+        .post(cfg.api_endpoint.trim())
+        .json(&body)
         .send()
         .await
-        .map_err(|e| AppError::Internal(format!("词典请求失败: {e}")))?;
+        .map_err(|e| AppError::Internal(format!("DeeplX 请求失败: {e}")))?;
 
-    if !resp.status().is_success() {
-        return Err(AppError::NotFound("未找到该单词的释义".into()));
-    }
-
-    let value: serde_json::Value = resp
-        .json()
+    let status = resp.status();
+    let text = resp
+        .text()
         .await
-        .map_err(|e| AppError::Internal(format!("词典返回解析失败: {e}")))?;
+        .map_err(|e| AppError::Internal(format!("读取 DeeplX 响应失败: {e}")))?;
 
-    Ok(parse_dictionaryapi(&value))
+    if !status.is_success() {
+        return Err(AppError::BadRequest(format!("DeeplX 返回 {status}")));
+    }
+
+    let value: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| AppError::Internal(format!("DeeplX 返回解析失败: {e}")))?;
+
+    Ok(parse_deeplx(term.trim(), &value))
 }
 
-/// Minimal percent-encoding for path segments (avoids pulling another dep).
-fn urlencoding(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for b in s.bytes() {
-        match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(b as char)
-            }
-            _ => out.push_str(&format!("%{b:02X}")),
-        }
-    }
-    out
-}
+fn parse_deeplx(term: &str, value: &serde_json::Value) -> DictionaryResult {
+    let translated = value
+        .get("data")
+        .and_then(|v| v.as_str())
+        .or_else(|| value.get("translation").and_then(|v| v.as_str()))
+        .or_else(|| value.get("result").and_then(|v| v.as_str()))
+        .unwrap_or("")
+        .trim()
+        .to_string();
 
-fn parse_dictionaryapi(value: &serde_json::Value) -> DictionaryResult {
-    let mut result = DictionaryResult::default();
-    let entry = value.as_array().and_then(|a| a.first());
-    let Some(entry) = entry else {
-        return result;
-    };
+    let alternatives = value
+        .get("alternatives")
+        .and_then(|v| v.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
 
-    // Phonetic: top-level "phonetic", else first non-empty in "phonetics".
-    if let Some(p) = entry.get("phonetic").and_then(|v| v.as_str()) {
-        result.phonetic = p.to_string();
-    }
-    if result.phonetic.is_empty() {
-        if let Some(arr) = entry.get("phonetics").and_then(|v| v.as_array()) {
-            for ph in arr {
-                if let Some(t) = ph.get("text").and_then(|v| v.as_str()) {
-                    if !t.is_empty() {
-                        result.phonetic = t.to_string();
-                        break;
-                    }
-                }
-            }
+    let mut markdown = format!("## DeeplX 翻译\n\n**原文**：{term}\n\n**译文**：{translated}");
+    if !alternatives.is_empty() {
+        markdown.push_str("\n\n**候选译法**：\n");
+        for alt in &alternatives {
+            markdown.push_str(&format!("- {alt}\n"));
         }
     }
 
-    // Collect up to a few definitions across meanings, grabbing the first example.
-    let mut defs: Vec<String> = Vec::new();
-    if let Some(meanings) = entry.get("meanings").and_then(|v| v.as_array()) {
-        for meaning in meanings {
-            let pos = meaning
-                .get("partOfSpeech")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if let Some(definitions) = meaning.get("definitions").and_then(|v| v.as_array()) {
-                for d in definitions {
-                    if let Some(text) = d.get("definition").and_then(|v| v.as_str()) {
-                        if pos.is_empty() {
-                            defs.push(text.to_string());
-                        } else {
-                            defs.push(format!("({pos}) {text}"));
-                        }
-                    }
-                    if result.example.is_empty() {
-                        if let Some(ex) = d.get("example").and_then(|v| v.as_str()) {
-                            result.example = ex.to_string();
-                        }
-                    }
-                    if defs.len() >= 3 {
-                        break;
-                    }
-                }
-            }
-            if defs.len() >= 3 {
-                break;
-            }
-        }
+    DictionaryResult {
+        phonetic: String::new(),
+        definition: translated,
+        example: String::new(),
+        note: if alternatives.is_empty() {
+            String::new()
+        } else {
+            format!("候选译法：{}", alternatives.join("；"))
+        },
+        tags: "DeeplX, 翻译".into(),
+        content_markdown: markdown,
+        raw_json: value.to_string(),
     }
-    result.definition = defs.join("\n");
-    result
 }

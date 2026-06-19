@@ -101,7 +101,9 @@ async fn wechat_callback(
     };
 
     let token = auth::sign(&state, user_id, "user")?;
-    let jar = jar.add(auth::session_cookie(&state, token));
+    let jar = jar
+        .add(auth::user_session_cookie(&state, token))
+        .add(auth::clear_legacy_cookie(&state));
     Ok((jar, Redirect::to("/app")))
 }
 
@@ -171,12 +173,16 @@ async fn email_login(
     }
 
     let token = auth::sign(&state, user.id, "user")?;
-    let jar = jar.add(auth::session_cookie(&state, token));
+    let jar = jar
+        .add(auth::user_session_cookie(&state, token))
+        .add(auth::clear_legacy_cookie(&state));
     Ok((jar, Json(json!({ "ok": true }))))
 }
 
 /// POST /api/auth/logout — clear the session cookie.
 async fn logout(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
-    let jar = jar.add(auth::clear_cookie(&state));
+    let jar = jar
+        .add(auth::clear_user_cookie(&state))
+        .add(auth::clear_legacy_cookie(&state));
     (jar, Json(json!({ "ok": true })))
 }

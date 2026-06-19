@@ -58,6 +58,11 @@ export interface Word {
   example: string;
   note: string;
   tags: string;
+  input_type: string;
+  difficulty: string;
+  content_markdown: string;
+  source: string;
+  raw_json: string;
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +78,10 @@ export interface DictionaryResult {
   phonetic: string;
   definition: string;
   example: string;
+  note: string;
+  tags: string;
+  content_markdown: string;
+  raw_json: string;
 }
 
 export interface AiTranslationResult {
@@ -81,6 +90,10 @@ export interface AiTranslationResult {
   example: string;
   note: string;
   tags: string;
+  input_type: string;
+  difficulty: string;
+  content_markdown: string;
+  raw_json: string;
 }
 
 export interface SmtpSettings {
@@ -103,6 +116,9 @@ export interface OAuthSettings {
 export interface DictionarySettings {
   enabled: boolean;
   url_template: string;
+  api_endpoint: string;
+  source_lang: string;
+  target_lang: string;
 }
 
 export type AiProvider = "openai_compatible" | "claude" | "gemini";

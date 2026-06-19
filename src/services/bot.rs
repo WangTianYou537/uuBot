@@ -63,6 +63,7 @@ pub enum BotCommand {
     Trans { term: String },
     Add { term: Option<String> },
     List { n: u64 },
+    Clear,
 }
 
 impl BotCommand {
@@ -71,6 +72,7 @@ impl BotCommand {
             BotCommand::Trans { .. } => "trans",
             BotCommand::Add { .. } => "add",
             BotCommand::List { .. } => "list",
+            BotCommand::Clear => "clear",
         }
     }
 }
@@ -112,6 +114,7 @@ pub fn parse_command(input: &str) -> AppResult<Option<BotCommand>> {
             .clamp(1, 50);
             Ok(Some(BotCommand::List { n }))
         }
+        "clear" => Ok(Some(BotCommand::Clear)),
         "" => Err(AppError::BadRequest("请输入指令".into())),
         other => Err(AppError::BadRequest(format!("未知指令：/{other}"))),
     }
@@ -444,16 +447,18 @@ pub async fn handle_inbound(state: &AppState, inbound: WxInboundMessage) -> AppR
         Err(e) => e.to_string(),
     };
 
-    record_message(
-        state,
-        conversation.id,
-        DIRECTION_OUTBOUND,
-        &reply,
-        command_name,
-        MESSAGE_OK,
-        json!({}),
-    )
-    .await?;
+    if command_name != "clear" {
+        record_message(
+            state,
+            conversation.id,
+            DIRECTION_OUTBOUND,
+            &reply,
+            command_name,
+            MESSAGE_OK,
+            json!({}),
+        )
+        .await?;
+    }
 
     Ok(BotReply { reply })
 }
@@ -568,12 +573,29 @@ async fn execute_command(
             let lines = items
                 .into_iter()
                 .enumerate()
-                .map(|(i, word)| format!("{}. {} — {}", i + 1, word.term, first_line(&word.definition)))
+                .map(|(i, word)| format_list_word(i + 1, &word.term, &word.definition))
                 .collect::<Vec<_>>()
-                .join("\n");
+                .join("\n\n");
             Ok(lines)
         }
+        BotCommand::Clear => {
+            clear_conversation_history(state, conversation.id).await?;
+            let mut active: bot_conversations::ActiveModel = conversation.into();
+            active.last_translated_term = Set(String::new());
+            active.last_translation_json = Set(String::new());
+            active.updated_at = Set(Utc::now());
+            active.update(&state.db).await?;
+            Ok("已清除当前会话的上一次翻译记录和网页端聊天记录。".into())
+        }
     }
+}
+
+async fn clear_conversation_history(state: &AppState, conversation_id: i64) -> AppResult<()> {
+    bot_messages::Entity::delete_many()
+        .filter(bot_messages::Column::ConversationId.eq(conversation_id))
+        .exec(&state.db)
+        .await?;
+    Ok(())
 }
 
 async fn insert_word_from_translation(
@@ -583,6 +605,11 @@ async fn insert_word_from_translation(
     translated: ai::AiTranslationResult,
 ) -> AppResult<words::Model> {
     let now = Utc::now();
+    let raw_json = if translated.raw_json.trim().is_empty() {
+        serde_json::to_string(&translated).unwrap_or_default()
+    } else {
+        translated.raw_json.clone()
+    };
     let active = words::ActiveModel {
         user_id: Set(user_id),
         term: Set(term.trim().to_string()),
@@ -591,6 +618,11 @@ async fn insert_word_from_translation(
         example: Set(translated.example),
         note: Set(translated.note),
         tags: Set(translated.tags),
+        input_type: Set(translated.input_type),
+        difficulty: Set(translated.difficulty),
+        content_markdown: Set(translated.content_markdown),
+        source: Set("bot".into()),
+        raw_json: Set(raw_json),
         created_at: Set(now),
         updated_at: Set(now),
         ..Default::default()
@@ -621,6 +653,9 @@ async fn record_message(
 }
 
 fn format_translation(term: &str, translated: &ai::AiTranslationResult) -> String {
+    if !translated.content_markdown.trim().is_empty() {
+        return translated.content_markdown.trim().to_string();
+    }
     let mut parts = vec![format!("{} {}", term, translated.phonetic).trim().to_string()];
     if !translated.definition.trim().is_empty() {
         parts.push(translated.definition.trim().to_string());
@@ -637,12 +672,23 @@ fn format_translation(term: &str, translated: &ai::AiTranslationResult) -> Strin
     parts.join("\n")
 }
 
-fn first_line(text: &str) -> String {
-    text.lines()
+fn format_list_word(index: usize, term: &str, definition: &str) -> String {
+    let definition = definition.trim();
+    if definition.is_empty() {
+        return format!("{index}. {term} — 暂无释义");
+    }
+
+    let lines = definition
+        .lines()
         .map(str::trim)
-        .find(|line| !line.is_empty())
-        .unwrap_or("暂无释义")
-        .to_string()
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+
+    match lines.as_slice() {
+        [] => format!("{index}. {term} — 暂无释义"),
+        [one] => format!("{index}. {term} — {one}"),
+        _ => format!("{index}. {term}\n  - {}", lines.join("\n  - ")),
+    }
 }
 
 #[cfg(test)]
@@ -662,6 +708,7 @@ mod tests {
         assert_eq!(parse_command("/add").unwrap(), Some(BotCommand::Add { term: None }));
         assert_eq!(parse_command("/list (-n 10)").unwrap(), Some(BotCommand::List { n: 10 }));
         assert_eq!(parse_command("/list").unwrap(), Some(BotCommand::List { n: 10 }));
+        assert_eq!(parse_command("/clear").unwrap(), Some(BotCommand::Clear));
         assert!(parse_command("/list -n bad").is_err());
         assert_eq!(parse_command("hello").unwrap(), None);
     }

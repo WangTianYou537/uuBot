@@ -1,5 +1,5 @@
 use sea_orm::sea_query::TableCreateStatement;
-use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Schema};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Schema, Statement};
 
 use crate::entities::{
     admins, bot_conversations, bot_messages, email_codes, settings, users, words, wx_bindings,
@@ -25,6 +25,7 @@ pub async fn create_tables(db: &DatabaseConnection) -> anyhow::Result<()> {
     create(db, backend, schema.create_table_from_entity(wx_bindings::Entity)).await?;
     create(db, backend, schema.create_table_from_entity(bot_conversations::Entity)).await?;
     create(db, backend, schema.create_table_from_entity(bot_messages::Entity)).await?;
+    add_word_columns(db, backend).await?;
 
     Ok(())
 }
@@ -36,5 +37,27 @@ async fn create(
 ) -> anyhow::Result<()> {
     stmt.if_not_exists();
     db.execute(backend.build(&stmt)).await?;
+    Ok(())
+}
+
+async fn add_word_columns(db: &DatabaseConnection, backend: DbBackend) -> anyhow::Result<()> {
+    for (name, ty) in [
+        ("input_type", "VARCHAR(32) NOT NULL DEFAULT ''"),
+        ("difficulty", "VARCHAR(32) NOT NULL DEFAULT ''"),
+        ("content_markdown", "TEXT NOT NULL DEFAULT ''"),
+        ("source", "VARCHAR(32) NOT NULL DEFAULT 'manual'"),
+        ("raw_json", "TEXT NOT NULL DEFAULT ''"),
+    ] {
+        let sql = format!("ALTER TABLE words ADD COLUMN {name} {ty}");
+        if let Err(e) = db.execute(Statement::from_string(backend, sql)).await {
+            let msg = e.to_string().to_ascii_lowercase();
+            if !msg.contains("duplicate")
+                && !msg.contains("already exists")
+                && !msg.contains("duplicate column")
+            {
+                return Err(e.into());
+            }
+        }
+    }
     Ok(())
 }

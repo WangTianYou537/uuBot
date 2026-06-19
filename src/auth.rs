@@ -14,7 +14,9 @@ use crate::entities::{admins, users};
 use crate::error::AppError;
 use crate::state::AppState;
 
-pub const COOKIE_NAME: &str = "session";
+pub const USER_COOKIE_NAME: &str = "user_session";
+pub const ADMIN_COOKIE_NAME: &str = "admin_session";
+const LEGACY_COOKIE_NAME: &str = "session";
 const SESSION_DAYS: i64 = 30;
 
 /// JWT claims. `kind` distinguishes user sessions from admin sessions so a user
@@ -38,9 +40,18 @@ pub fn sign(state: &AppState, sub: i64, kind: &str) -> Result<String, AppError> 
         .map_err(|e| AppError::Internal(format!("failed to sign token: {e}")))
 }
 
-/// Build the session cookie holding `token`.
-pub fn session_cookie<'a>(state: &AppState, token: String) -> Cookie<'a> {
-    let mut cookie = Cookie::new(COOKIE_NAME, token);
+/// Build the session cookie holding `token` for a regular user.
+pub fn user_session_cookie<'a>(state: &AppState, token: String) -> Cookie<'a> {
+    session_cookie_named(state, USER_COOKIE_NAME, token)
+}
+
+/// Build the session cookie holding `token` for an admin.
+pub fn admin_session_cookie<'a>(state: &AppState, token: String) -> Cookie<'a> {
+    session_cookie_named(state, ADMIN_COOKIE_NAME, token)
+}
+
+fn session_cookie_named<'a>(state: &AppState, name: &'static str, token: String) -> Cookie<'a> {
+    let mut cookie = Cookie::new(name, token);
     cookie.set_http_only(true);
     cookie.set_path("/");
     cookie.set_same_site(SameSite::Lax);
@@ -49,9 +60,23 @@ pub fn session_cookie<'a>(state: &AppState, token: String) -> Cookie<'a> {
     cookie
 }
 
-/// Build a cookie that clears the session.
-pub fn clear_cookie<'a>(state: &AppState) -> Cookie<'a> {
-    let mut cookie = Cookie::new(COOKIE_NAME, "");
+/// Build a cookie that clears the regular user session.
+pub fn clear_user_cookie<'a>(state: &AppState) -> Cookie<'a> {
+    clear_cookie_named(state, USER_COOKIE_NAME)
+}
+
+/// Build a cookie that clears the admin session.
+pub fn clear_admin_cookie<'a>(state: &AppState) -> Cookie<'a> {
+    clear_cookie_named(state, ADMIN_COOKIE_NAME)
+}
+
+/// Build a cookie that clears the legacy shared session cookie.
+pub fn clear_legacy_cookie<'a>(state: &AppState) -> Cookie<'a> {
+    clear_cookie_named(state, LEGACY_COOKIE_NAME)
+}
+
+fn clear_cookie_named<'a>(state: &AppState, name: &'static str) -> Cookie<'a> {
+    let mut cookie = Cookie::new(name, "");
     cookie.set_http_only(true);
     cookie.set_path("/");
     cookie.set_same_site(SameSite::Lax);
@@ -70,8 +95,12 @@ fn decode_claims(state: &AppState, token: &str) -> Result<Claims, AppError> {
 
 fn token_of_kind(parts: &Parts, state: &AppState, kind: &str) -> Result<i64, AppError> {
     let jar = CookieJar::from_headers(&parts.headers);
+    let cookie_name = match kind {
+        "admin" => ADMIN_COOKIE_NAME,
+        _ => USER_COOKIE_NAME,
+    };
     let token = jar
-        .get(COOKIE_NAME)
+        .get(cookie_name)
         .map(|c| c.value().to_string())
         .ok_or_else(|| AppError::Unauthorized("not authenticated".into()))?;
     let claims = decode_claims(state, &token)?;

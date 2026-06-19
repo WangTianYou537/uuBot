@@ -1,0 +1,54 @@
+name: Build uuBot
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  build:
+    name: Build Release Binary
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 拉取代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 设置 Node.js 环境（带缓存以加快后续构建速度）
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # 可以根据您的实际项目版本进行调整
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # 3. 安装前端依赖并构建
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci # 在 CI 环境中，npm ci 比 npm install 更安全、更一致
+          npm run build
+
+      # 4. 设置 Rust 工具链
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # 5. Rust 依赖缓存，避免每次都要重新编译所有依赖
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      # 6. 构建 Rust 释放包
+      - name: Build Release Binary
+        run: |
+          touch src/embed.rs
+          cargo build --release
+
+      # 7. 上传构建好的二进制文件作为 Artifact
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uuBot-linux-amd64
+          path: target/release/uuBot

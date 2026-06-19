@@ -12,6 +12,34 @@ import { Eyebrow } from "@/components/brand";
 import { api, ApiError, type AdminSettings, type User } from "@/lib/api";
 import { Textarea } from "@/components/ui/textarea";
 
+const DEFAULT_AI_SYSTEM_PROMPT = `你是一名专业的英语词典编纂者、英语教师和翻译助手，擅长分析英语单词、短语和句子。你的任务是根据用户输入的英语内容，判断其类型，并按照固定结构进行翻译、讲解和拓展。
+
+用户可能输入：
+1. 单个英语单词
+2. 英语短语 / 固定搭配 / 习语
+3. 英语句子
+4. 多个单词、短语或句子
+
+你需要先判断输入类型，然后选择对应格式输出。
+
+# 总体要求
+
+1. 输出语言以中文为主，必要时保留英文。
+2. 翻译要准确、自然，符合语境。
+3. 如果一个词或短语有多个常见含义，需要分条列出。
+4. 英式和美式差异明显时要说明；音标默认给美式音标，如有必要可补充英式音标。
+5. 例句要自然、实用，并附中文翻译。
+6. 不要只给简单翻译，要进行学习型讲解。
+7. 如果用户输入存在拼写错误，应先指出可能的正确形式，再进行讲解。
+8. 如果用户输入内容有多种解释，应说明不同可能性。
+9. 不要编造不存在的词义、词源或搭配。
+10. 使用 Markdown 格式输出。
+11. 如果用户明确要求“只翻译”“只给音标”“只造句”等，应优先服从用户当前要求。
+
+# 防幻觉规则
+
+不确定的词源、词根、专有名词背景，不要编造；无法确认时说明不确定；不要给不存在的同义词、搭配或例句用法。`;
+
 const ADMIN_NAV: NavItem[] = [
   { to: "/admin", label: "总览", hint: "overview", icon: LayoutDashboard },
   { to: "/admin?tab=settings", label: "系统配置", hint: "settings", icon: Settings },
@@ -306,7 +334,7 @@ function SettingsForm({ onSaved }: { onSaved: () => void }) {
       <Block
         eyebrow="取义 / dictionary"
         title="词典查询"
-        description="URL 模板需包含 {word} 占位符。"
+        description="使用 DeeplX 翻译接口作为快速取义来源。"
       >
         <Check
           checked={dict.enabled}
@@ -316,18 +344,38 @@ function SettingsForm({ onSaved }: { onSaved: () => void }) {
         >
           启用词典查询
         </Check>
-        <Field label="URL 模板">
+        <Field label="DeeplX Endpoint">
           <Input
             className="font-mono"
-            value={dict.url_template}
+            value={dict.api_endpoint}
             onChange={(e) =>
-              setForm({
-                ...form,
-                dictionary: { ...dict, url_template: e.target.value },
-              })
+              setForm({ ...form, dictionary: { ...dict, api_endpoint: e.target.value } })
             }
+            placeholder="https://api.deeplx.org/translate"
           />
         </Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="源语言">
+            <Input
+              className="font-mono"
+              value={dict.source_lang}
+              onChange={(e) =>
+                setForm({ ...form, dictionary: { ...dict, source_lang: e.target.value } })
+              }
+              placeholder="EN"
+            />
+          </Field>
+          <Field label="目标语言">
+            <Input
+              className="font-mono"
+              value={dict.target_lang}
+              onChange={(e) =>
+                setForm({ ...form, dictionary: { ...dict, target_lang: e.target.value } })
+              }
+              placeholder="ZH"
+            />
+          </Field>
+        </div>
       </Block>
 
       {/* AI */}
@@ -409,14 +457,27 @@ function SettingsForm({ onSaved }: { onSaved: () => void }) {
           />
           <p className="text-xs text-muted-foreground">{aiHints.description}</p>
         </Field>
-        <Field label="翻译系统提示词">
+        <Field label={`翻译系统提示词（${ai.system_prompt.length} 字符）`}>
           <Textarea
             value={ai.system_prompt}
             onChange={(e) =>
               setForm({ ...form, ai: { ...ai, system_prompt: e.target.value } })
             }
-            rows={5}
+            rows={8}
+            className="max-h-72 min-h-40 resize-y overflow-y-auto font-mono text-xs"
           />
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setForm({ ...form, ai: { ...ai, system_prompt: DEFAULT_AI_SYSTEM_PROMPT } })
+              }
+            >
+              恢复默认提示词
+            </Button>
+          </div>
         </Field>
       </Block>
 

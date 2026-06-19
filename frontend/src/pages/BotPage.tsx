@@ -95,6 +95,14 @@ export default function BotPage() {
 
   if (!user) return null;
 
+  const refreshBotData = () => {
+    qc.invalidateQueries({ queryKey: ["bot-conversations"] });
+    if (selectedConversation) {
+      qc.invalidateQueries({ queryKey: ["bot-messages", selectedConversation.id] });
+    }
+    toast.success("正在同步微信聊天记录");
+  };
+
   return (
     <UserShell user={user} contentClassName="max-w-6xl">
       <Masthead
@@ -225,6 +233,7 @@ export default function BotPage() {
               <li>/add (example)</li>
               <li>/add</li>
               <li>/list (-n 10)</li>
+              <li>/clear</li>
             </ul>
           </div>
         </section>
@@ -250,7 +259,18 @@ export default function BotPage() {
           </div>
 
           <div className="rounded-md border border-border p-4">
-            <Eyebrow>对话记录</Eyebrow>
+            <div className="flex items-center justify-between gap-2">
+              <Eyebrow>对话记录</Eyebrow>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshBotData}
+                disabled={conversations.isFetching || messages.isFetching}
+              >
+                <RefreshCw />
+                刷新
+              </Button>
+            </div>
             <div className="mt-4 flex max-h-[34rem] flex-col gap-3 overflow-y-auto pr-1">
               {messages.data?.items.map((m) => (
                 <div

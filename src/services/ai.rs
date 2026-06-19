@@ -8,11 +8,24 @@ use crate::services::settings::{AiProvider, AiSettings};
 /// editable word form so the frontend can prefill without saving.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AiTranslationResult {
+    #[serde(default)]
     pub phonetic: String,
+    #[serde(default)]
     pub definition: String,
+    #[serde(default)]
     pub example: String,
+    #[serde(default)]
     pub note: String,
+    #[serde(default)]
     pub tags: String,
+    #[serde(default)]
+    pub input_type: String,
+    #[serde(default)]
+    pub difficulty: String,
+    #[serde(default)]
+    pub content_markdown: String,
+    #[serde(default)]
+    pub raw_json: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,13 +110,17 @@ fn validate_config(cfg: &AiSettings) -> AppResult<()> {
 
 fn build_prompt(term: &str) -> String {
     format!(
-        "请为单词或短语「{term}」生成适合个人词库的中文释义信息。\n\n\
-         返回字段要求：\n\
-         - phonetic: 音标；如果不是英文单词或无法确定，返回空字符串。\n\
-         - definition: 中文释义，每个义项一行，简洁但可用于背诵。\n\
-         - example: 一个自然例句，优先英文例句；如果词条不是英文，可给目标语言例句。\n\
-         - note: 记忆提示、用法提醒或易混点；没有则空字符串。\n\
-         - tags: 2 到 5 个中文标签，用英文逗号分隔。"
+        "请分析用户输入：\n\n{term}\n\n\
+         你必须只返回 JSON 对象，不要在 JSON 外添加任何解释。字段要求：\n\
+         - input_type: word / phrase / sentence / multiple / unknown。\n\
+         - phonetic: 美式 IPA 音标；不适用则空字符串。\n\
+         - definition: 中文核心释义摘要，多个义项每行一条，适合列表快速浏览。\n\
+         - example: 一个最有代表性的英文例句，并附中文翻译，可用换行。\n\
+         - note: 简短学习提示、易混点或用法提醒。\n\
+         - tags: 2 到 5 个中文标签，用英文逗号分隔。\n\
+         - difficulty: 初级 / 中级 / 高级 / 学术 / 专业。\n\
+         - content_markdown: 按系统提示词要求输出完整 Markdown 学习型讲解。\n\
+         - raw_json: 如无额外结构化信息，返回空字符串。"
     )
 }
 
@@ -115,9 +132,13 @@ fn result_schema() -> serde_json::Value {
             "definition": { "type": "string" },
             "example": { "type": "string" },
             "note": { "type": "string" },
-            "tags": { "type": "string" }
+            "tags": { "type": "string" },
+            "input_type": { "type": "string" },
+            "difficulty": { "type": "string" },
+            "content_markdown": { "type": "string" },
+            "raw_json": { "type": "string" }
         },
-        "required": ["phonetic", "definition", "example", "note", "tags"],
+        "required": ["phonetic", "definition", "example", "note", "tags", "input_type", "difficulty", "content_markdown", "raw_json"],
         "additionalProperties": false
     })
 }
@@ -129,7 +150,7 @@ async fn translate_claude(
 ) -> AppResult<AiTranslationResult> {
     let body = json!({
         "model": cfg.model.trim(),
-        "max_tokens": 2000,
+        "max_tokens": 6000,
         "system": cfg.system_prompt,
         "messages": [{ "role": "user", "content": prompt }],
         "output_config": {
@@ -286,6 +307,8 @@ fn extract_error_message(value: serde_json::Value) -> Option<String> {
 }
 
 fn parse_translation_json(text: &str) -> AppResult<AiTranslationResult> {
-    serde_json::from_str::<AiTranslationResult>(text.trim())
-        .map_err(|e| AppError::Internal(format!("解析 AI 翻译 JSON 失败: {e}")))
+    serde_json::from_str::<AiTranslationResult>(text.trim()).map_err(|e| {
+        let preview = text.trim().chars().take(50).collect::<String>();
+        AppError::Internal(format!("解析 AI 翻译 JSON 失败: {e}; 原文前50字: {preview}"))
+    })
 }
