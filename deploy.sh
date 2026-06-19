@@ -22,7 +22,7 @@ NGINX_SITE_PATH="/etc/nginx/sites-available/uubot.conf"
 NGINX_SITE_LINK="/etc/nginx/sites-enabled/uubot.conf"
 DEFAULT_BIND_ADDR="127.0.0.1:8080"
 DEFAULT_DATABASE_URL="sqlite://$INSTALL_DIR/data.db?mode=rwc"
-DEFAULT_RELEASE_URL=""
+DEFAULT_RELEASE_URL="https://github.com/WangTianYou537/uuBot/releases/latest/download/uuBot"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "请用 root 权限运行：sudo bash deploy.sh"

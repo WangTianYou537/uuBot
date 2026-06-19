@@ -307,8 +307,29 @@ fn extract_error_message(value: serde_json::Value) -> Option<String> {
 }
 
 fn parse_translation_json(text: &str) -> AppResult<AiTranslationResult> {
-    serde_json::from_str::<AiTranslationResult>(text.trim()).map_err(|e| {
+    let cleaned = clean_json_text(text);
+    serde_json::from_str::<AiTranslationResult>(&cleaned).map_err(|e| {
         let preview = text.trim().chars().take(50).collect::<String>();
         AppError::Internal(format!("解析 AI 翻译 JSON 失败: {e}; 原文前50字: {preview}"))
     })
+}
+
+fn clean_json_text(text: &str) -> String {
+    let trimmed = text.trim();
+    if !trimmed.starts_with("```") {
+        return trimmed.to_string();
+    }
+
+    let without_opening = trimmed
+        .strip_prefix("```json")
+        .or_else(|| trimmed.strip_prefix("```JSON"))
+        .or_else(|| trimmed.strip_prefix("```"))
+        .unwrap_or(trimmed)
+        .trim_start();
+
+    without_opening
+        .strip_suffix("```")
+        .unwrap_or(without_opening)
+        .trim()
+        .to_string()
 }
