@@ -143,6 +143,14 @@ fn result_schema() -> serde_json::Value {
     })
 }
 
+fn gemini_result_schema() -> serde_json::Value {
+    let mut schema = result_schema();
+    if let Some(obj) = schema.as_object_mut() {
+        obj.remove("additionalProperties");
+    }
+    schema
+}
+
 async fn translate_claude(
     http: &reqwest::Client,
     cfg: &AiSettings,
@@ -237,8 +245,11 @@ async fn translate_gemini(
             "parts": [{ "text": prompt }]
         }],
         "generationConfig": {
+            "thinkingConfig": {
+                "thinkingLevel": "HIGH"
+            },
             "responseMimeType": "application/json",
-            "responseSchema": result_schema()
+            "responseSchema": gemini_result_schema()
         }
     });
 
