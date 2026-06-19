@@ -281,9 +281,10 @@ fn gemini_endpoint(cfg: &AiSettings) -> AppResult<reqwest::Url> {
 
 async fn send_json(builder: reqwest::RequestBuilder) -> AppResult<String> {
     let resp = builder
+        .timeout(std::time::Duration::from_secs(120))
         .send()
         .await
-        .map_err(|e| AppError::Internal(format!("AI 翻译请求失败: {e}")))?;
+        .map_err(|e| AppError::Internal(format!("AI 翻译请求失败: {}", redact_sensitive_url(&e.to_string()))))?;
 
     let status = resp.status();
     let text = resp
@@ -300,6 +301,23 @@ async fn send_json(builder: reqwest::RequestBuilder) -> AppResult<String> {
     }
 
     Ok(text)
+}
+
+fn redact_sensitive_url(text: &str) -> String {
+    let mut out = text.to_string();
+    for marker in ["key=", "api_key="] {
+        let Some(start) = out.find(marker).map(|idx| idx + marker.len()) else {
+            continue;
+        };
+        let end = out[start..]
+            .find(['&', ')', ' '])
+            .map(|idx| start + idx)
+            .unwrap_or(out.len());
+        if end > start {
+            out.replace_range(start..end, "***");
+        }
+    }
+    out
 }
 
 fn extract_error_message(value: serde_json::Value) -> Option<String> {
